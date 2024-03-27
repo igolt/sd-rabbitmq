@@ -1,0 +1,24 @@
+services:
+  sd-rabbitmq:
+    image: rabbitmq:3.13.0-alpine
+    container_name: sd-rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics check_running
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 3s
+
+  sd-rabbitmq-producer: &rabbitmq-client
+    build: ./producer
+    container_name: sd-rabbitmq-producer
+    environment:
+      RABBITMQ_HOST: sd-rabbitmq
+    depends_on:
+      sd-rabbitmq:
+        condition: service_healthy
+
+  sd-rabbitmq-consumer:
+    <<: *rabbitmq-client
+    build: ./consumer
+    container_name: sd-rabbitmq-consumer
