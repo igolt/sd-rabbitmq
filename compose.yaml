@@ -18,7 +18,11 @@ services:
       sd-rabbitmq:
         condition: service_healthy
 
-  sd-rabbitmq-consumer:
+  sd-rabbitmq-worker1: &rabbitmq-worker
     <<: *rabbitmq-client
     build: ./consumer
-    container_name: sd-rabbitmq-consumer
+    container_name: sd-rabbitmq-worker1
+
+  sd-rabbitmq-worker2:
+    <<: *rabbitmq-worker
+    container_name: sd-rabbitmq-worker2
