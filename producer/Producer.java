@@ -7,33 +7,41 @@ import org.slf4j.LoggerFactory;
 
 public class Producer {
     public static final String DEFAULT_HOST = "localhost";
-    public static final String DEFAULT_QUEUE_NAME = "hello";
-
-    public static String getEnv(String key, String defaultValue) {
-        String value = System.getenv(key);
-
-        return value == null ? defaultValue : value;
-    }
+    public static final String DEFAULT_RABBITMQ_EXCHANGE_NAME = "logs";
 
     public static void main(String[] argv) throws Exception {
         ConnectionFactory factory = new ConnectionFactory();
-        Logger logger = LoggerFactory.getLogger(Producer.class);
-        String queueName, host;
 
-        host = getEnv("RABBITMQ_HOST", DEFAULT_HOST);
-        queueName = getEnv("RABBITMQ_QUEUE", DEFAULT_QUEUE_NAME);
+        factory.setHost(getHost());
+        try (
+            Connection conn = factory.newConnection();
+            Channel channel = conn.createChannel();
+        ) {
+            Logger logger = LoggerFactory.getLogger(Producer.class);
+            String exchangeName = getExchangeName();
+            int logNumber = 0;
 
-        factory.setHost(host);
-        try (Connection conn = factory.newConnection();
-             Channel channel = conn.createChannel()) {
-            channel.queueDeclare(queueName, false, false, false, null);
-            String message = "Hello World!";
-
+            channel.exchangeDeclare(exchangeName, "fanout");
             while (true) {
-                channel.basicPublish("", queueName, null, message.getBytes());
-                logger.info(" [x] Sent '" + message + "'");
-                Thread.sleep(10000);
+                String msg = "Log " + (++logNumber);
+
+                channel.basicPublish(exchangeName, "", null, msg.getBytes());
+                logger.info(" [x] Sent '" + msg + "'");
+                Thread.sleep(5000);
             }
         }
+    }
+
+    public static String getEnv(String key, String defaultValue) {
+        String value = System.getenv(key);
+        return value == null ? defaultValue : value;
+    }
+
+    public static String getHost() {
+        return getEnv("RABBITMQ_HOST", DEFAULT_HOST);
+    }
+
+    public static String getExchangeName() {
+        return getEnv("RABBITMQ_EXCHANGE_NAME", DEFAULT_RABBITMQ_EXCHANGE_NAME);
     }
 }

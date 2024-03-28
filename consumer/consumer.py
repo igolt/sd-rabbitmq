@@ -4,24 +4,34 @@ import sys
 import logging
 
 
+def get_consumer_name():
+    consumer_name = os.getenv("CONSUMER_NAME", "").strip()
+    if len(consumer_name) < 3:
+        consumer_name = "consumer"
+    return consumer_name
+
+
 def main():
     host = os.getenv("RABBITMQ_HOST", "localhost")
-    queue_name = os.getenv("RABBITMQ_QUEUE", "hello")
+    exchange = os.getenv("RABBITMQ_EXCHANGE", "logs")
+    consumer_name = get_consumer_name()
 
-    conn = pika.BlockingConnection(pika.ConnectionParameters(host=host))
+    conn = pika.BlockingConnection(pika.ConnectionParameters(host))
     channel = conn.channel()
 
-    channel.queue_declare(queue_name)
+    channel.exchange_declare(exchange, exchange_type="fanout")
+    result = channel.queue_declare("", exclusive=True)
+    queue = result.method.queue
 
-    def on_message_cb(ch, method, properties, body):
+    channel.queue_bind(queue, exchange)
+
+    def on_message_callback(ch, method, properties, body: bytes):
         del ch, method, properties
-        logging.warning(f" [x] Received {body}")
+        logging.warning(f" [x] {consumer_name}: Received {body.decode()!r}")
 
-    channel.basic_consume(
-        queue=queue_name, on_message_callback=on_message_cb, auto_ack=True
-    )
+    channel.basic_consume(queue, on_message_callback, auto_ack=True)
 
-    logging.warning(" [*] Waiting for messages. To exit press CTRL+C")
+    logging.warning(" [*] Waiting for logs. To exit press CTRL+C")
     channel.start_consuming()
 
 
@@ -30,6 +40,9 @@ if __name__ == "__main__":
 
     try:
         main()
+    except Exception as e:
+        logging.error(str(e))
+        sys.exit(1)
     except KeyboardInterrupt:
         logging.warning("Interrupted")
         try:
