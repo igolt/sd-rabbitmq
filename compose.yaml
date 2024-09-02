@@ -9,16 +9,20 @@ services:
       retries: 3
       start_period: 3s
 
-  sd-rabbitmq-producer: &rabbitmq-client
-    build: ./producer
-    container_name: sd-rabbitmq-producer
+  sd-rabbitmq-rpc-server: &rabbitmq-client
+    build: ./server
+    image: java-rabbitmq
+    container_name: rpc-server
     environment:
       RABBITMQ_HOST: sd-rabbitmq
     depends_on:
       sd-rabbitmq:
         condition: service_healthy
 
-  sd-rabbitmq-consumer:
+  sd-rabbitmq-rpc-client:
     <<: *rabbitmq-client
-    build: ./consumer
-    container_name: sd-rabbitmq-consumer
+    build: ./client
+    image: python-rabbitmq
+    container_name: rpc-client
+    depends_on:
+      - sd-rabbitmq-rpc-server
